@@ -1,0 +1,219 @@
+---
+title: "Bike rental"
+output: rmarkdown::github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r cars}
+library(rio)
+library(formattable)
+library(dplyr)
+library(tidyverse)
+library(readxl)
+library(corrplot)
+library(stargazer)
+library(car)
+library(PerformanceAnalytics)
+library(tidyr)
+library(tm)
+library(MASS)
+library(AER)
+library(ggplot2)
+library(lubridate)
+
+#library(hrbrthemes)
+
+options(scipen = 999)
+```
+
+Importing Data
+```{r}
+#importing data
+df<-read_xlsx("Bikeshare.xlsx",sheet = "Data")
+```
+
+```{r}
+df$total<-df$casual+df$registered
+```
+
+```{r}
+df$day <- weekdays(as.Date(df$date))
+df$month<-months(df$date)
+```
+
+Subsetting data
+
+```{r}
+#subsetting data
+summary(df)
+df<-df[ which(df$weather!=4), ]
+df2<-df[ which(df$casual!=0), ]
+```
+
+
+Converting to factor and releveling
+```{r}
+df$weather<-as.factor(df$weather)
+summary(df$weather)
+df$day<-as.factor(df$day)
+df$month<-as.factor(df$month)
+df$holiday<-as.factor(df$holiday)
+df$workday<-as.factor(df$workday)
+df$season<-as.factor(df$season)
+df$hour<-as.factor(df$hour)
+df$day<-relevel(df$day,"Sunday")
+df$month<-relevel(df$month,"January")
+```
+
+```{r}
+df2$weather<-as.factor(df2$weather)
+df2$day<-as.factor(df2$day)
+df2$month<-as.factor(df2$month)
+df2$holiday<-as.factor(df2$holiday)
+df2$workday<-as.factor(df2$workday)
+df2$season<-as.factor(df2$season)
+df2$hour<-as.factor(df2$hour)
+df2$day<-relevel(df2$day,"Sunday")
+df2$month<-relevel(df2$month,"January")
+```
+
+
+Sample Categorized Scatter Plot
+```{r}
+numerics=df[c('temp','fltemp','humidity','windspeed','casual','registered','total')]
+correlations=cor(numerics)
+corrplot(correlations,method = "square",type="upper")
+
+
+
+```
+
+
+
+Normal Histogram
+```{r}
+ggplot(df, aes(x=df$total)) + geom_histogram(color="coral",fill="coral")+ggtitle("Histogram of total rentals")+xlab("Total Rentals")
+ggplot(df, aes(x=log(df$total))) + geom_histogram(color="coral",fill="coral")+ggtitle("Histogram of Log of total rentals")+xlab("Log of Total Rentals")
+
+
+ggplot(df, aes(x=df$casual)) + geom_histogram(color="coral",fill="coral")+ggtitle("Histogram of casual rentals")+xlab("Casual Rentals")
+ggplot(df, aes(x=log(df$casual))) + geom_histogram(color="coral",fill="coral")+ggtitle("Histogram of Log of casual rentals")+xlab("Log of Casual Rentals")
+
+ggplot(df, aes(x=df$registered)) + geom_histogram(color="coral",fill="coral")+ggtitle("Histogram of registered rentals")+xlab("Registered Rentals")
+ggplot(df, aes(x=log(df$registered))) + geom_histogram(color="coral",fill="coral")+ggtitle("Histogram of Log registered rentals")+xlab("Log of Registered Rentals")
+
+
+length(which(df$total==0))
+length(which(df$casual==0))
+length(which(df$registered==0))
+```
+
+Category Boxplots
+
+```{r}
+df %>%
+  group_by(weather) %>%
+  ggplot()+
+  geom_boxplot(aes(x=weather,y=total,fill="coral"))+
+  guides(fill=FALSE)
+
+df %>%
+  group_by(workday) %>%
+  ggplot()+
+  geom_boxplot(aes(x=workday,y=total,fill="coral"))+
+  guides(fill=FALSE)
+
+df %>%
+  group_by(month) %>%
+  ggplot()+
+  geom_boxplot(aes(x=month,y=total,fill="coral"))+
+  guides(fill=FALSE)
+
+df %>%
+  group_by(hour) %>%
+  ggplot()+
+  geom_boxplot(aes(x=hour,y=total,fill="coral"))+
+  guides(fill=FALSE)
+
+df %>%
+  group_by(season) %>%
+  ggplot()+
+  geom_boxplot(aes(x=season,y=total,fill="coral"))+
+  guides(fill=FALSE)
+
+df %>%
+  group_by(day) %>%
+  ggplot()+
+  geom_boxplot(aes(x=day,y=total,fill="coral"))+
+  guides(fill=FALSE)
+
+
+```
+
+GLM assumption tests
+```{r}
+#dispersiontest(reg2)
+#durbinWatsonTest()
+```
+
+
+
+OLS Regression Model
+```{r}
+#reg1<-lm(formula = medexpense~healthins+age+illnesses+logincome+agesqrd+healthscore+female+ssiratio+private+prioritylist+midincome+lowincome+vgh+fph+blackhisp+firmsize,data=df)
+#summary(reg1)
+#vif1<-vif(reg1)
+```
+
+
+GLM Model
+```{r}
+reg1<-glm(formula=total~weather+day+fltemp+windspeed+humidity+hour+month,data=df,family = poisson)
+summary(reg1)
+vif1<-vif(reg1)
+dispersiontest(reg1)
+durbinWatsonTest(reg1)
+```
+
+
+Negative Binomial Model
+```{r}
+reg2<-glm.nb(formula=total~weather+day+humidity+windspeed+hour+month,data=df)
+summary(reg2)
+vif2<-vif(reg2)
+durbinWatsonTest(reg2)
+vif2
+```
+
+```{r}
+reg3<-glm(formula=registered~weather+day+fltemp+windspeed+humidity+hour+month,data=df,family = poisson)
+summary(reg3)
+vif3<-vif(reg3)
+dispersiontest(reg3)
+durbinWatsonTest(reg3)
+```
+```{r}
+reg4<-glm.nb(formula=registered~weather+day+humidity+windspeed+hour+month,data=df)
+summary(reg4)
+vif4<-vif(reg4)
+durbinWatsonTest(reg4)
+vif4
+```
+
+```{r}
+reg5<-glm.nb(formula=casual~weather+day+humidity+windspeed+hour+month,data=df2)
+summary(reg5)
+vif5<-vif(reg5)
+durbinWatsonTest(reg5)
+vif5
+```
+
+Starazer Outputs
+```{r}
+stargazer(reg2,reg4,reg5,type="text",align = TRUE,single.row=TRUE,digits=2,out = "reg7.txt")
+stargazer(vif2,vif4,vif5,type="text",align = TRUE,single.row=TRUE,digits=2,out = "reg8.txt")
+```
